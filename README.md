@@ -1,2 +1,3 @@
-# pulser-scaleway
-Scaleway provider implementation for Pulser SDK
+# Scaleway provider for Pulser
+
+Scaleway provider implementation to use neutral atoms based quantum computer
