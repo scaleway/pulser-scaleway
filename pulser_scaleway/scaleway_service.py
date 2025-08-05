@@ -31,7 +31,7 @@ from pulser.backend.abc import Backend
 from pulser.backend.results import Results, ResultsSequence
 from pulser.devices import Device
 
-from scaleway_qaas_client.v1alpha1 import QaaSClient
+from scaleway_qaas_client.v1alpha1 import QaaSClient, QaaSPlatform
 
 
 class ScalewayQuantumService(RemoteConnection):
@@ -60,6 +60,19 @@ class ScalewayQuantumService(RemoteConnection):
         emulator = kwargs.get("emulator", None)
         job_params: list[JobParams] = make_json_compatible(kwargs.get("job_params", []))
 
+        if sequence.is_parametrized() or sequence.is_register_mappable():
+            for params in job_params:
+                vars = params.get("variables", {})
+                sequence.build(**vars)
+
+        configuration = self._convert_configuration(
+            config=kwargs.get("config", None),
+            emulator=emulator,
+            strict_validation=False,
+        )
+
+        payload = sequence.to_abstract_repr()
+
     def _fetch_result(
         self, batch_id: str, job_ids: list[str] | None
     ) -> Sequence[Results]:
@@ -84,22 +97,17 @@ class ScalewayQuantumService(RemoteConnection):
 
     def _get_job_ids(self, batch_id: str) -> list[str]:
         """Gets all the job IDs within a batch."""
-        raise NotImplementedError(
-            "Unable to find job IDs through this remote connection."
-        )
+        return None
 
     def fetch_available_devices(self) -> dict[str, Device]:
         """Fetches the devices available through this connection."""
-        raise NotImplementedError(
-            "Unable to fetch the available devices through this " "remote connection."
-        )
+        devices = {}
+        return devices
 
     def _close_batch(self, batch_id: str) -> None:
         """Closes a batch using its ID."""
-        raise NotImplementedError(  # pragma: no cover
-            "Unable to close batch through this remote connection"
-        )
+        return None
 
     def supports_open_batch(self) -> bool:
         """Flag to confirm this class can support creating an open batch."""
-        pass
+        return True
