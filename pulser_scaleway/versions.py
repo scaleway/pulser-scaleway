@@ -11,4 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from .scaleway_service import ScalewayQuantumService
+import importlib.metadata
+import platform
+
+from typing import Final
+
+PULSER_VERSION: Final = importlib.metadata.version("pulser-core")
+PULSER_SCALEWAY_PROVIDER_VERSION: Final = importlib.metadata.version("pulser-scaleway")
+
+__version__: Final = PULSER_SCALEWAY_PROVIDER_VERSION
+
+USER_AGENT: Final = " ".join(
+    [
+        f"pulser-scaleway/{PULSER_SCALEWAY_PROVIDER_VERSION}",
+        f"({platform.system()}; {platform.python_implementation()}/{platform.python_version()})",
+        f"pulser-core/{PULSER_VERSION}",
+    ]
+)
