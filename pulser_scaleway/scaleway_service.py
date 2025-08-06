@@ -28,7 +28,8 @@ from pulser.backend.remote import (
     RemoteConnection,
     RemoteResults,
 )
-from pulser.backend.qpu import QPUBackend
+
+# from pulser.backend.qpu import QPUBackend
 from pulser.backend.results import Results
 from pulser.devices import Device
 from pulser.json.utils import make_json_compatible
@@ -53,14 +54,13 @@ class ScalewayQuantumService(RemoteConnection):
         self,
         sequence: Sequence,
         wait: bool = False,
-        open: bool = False,
         batch_id: Optional[str] = None,
         **kwargs,
     ) -> RemoteResults:
         job_params = kwargs.get("job_params", [])
 
-        sequence = self.update_sequence_device(sequence)
-        QPUBackend.validate_job_params(job_params, sequence.device.max_runs)
+        # sequence = self.update_sequence_device(sequence)
+        # QPUBackend.validate_job_params(job_params, sequence.device.max_runs)
 
         if batch_id:
             job_ids = self._create_jobs(
@@ -69,8 +69,15 @@ class ScalewayQuantumService(RemoteConnection):
                 job_params=job_params,
             )
         else:
+            platforms = self._client.list_platforms(name=sequence.device.name)
+
+            if len(platforms) == 0:
+                raise Exception(
+                    f"no platform available with name {sequence.device.name}"
+                )
+
             session = self._client.create_session(
-                platform_id=platform_id,
+                platform_id=platforms[0].id,
                 name=f"pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
             )
 
