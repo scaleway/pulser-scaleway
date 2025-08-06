@@ -15,12 +15,12 @@ import os
 import typing
 import httpx
 import json
+import time
 
 from typing import Optional, Mapping, List, Dict, Tuple
+from datetime import datetime
 
 from pulser import Sequence
-from pulser.backend.config import EmulatorConfig
-from pulser.backend.qpu import QPUBackend
 from pulser.backend.remote import (
     BatchStatus,
     JobParams,
@@ -28,10 +28,10 @@ from pulser.backend.remote import (
     RemoteConnection,
     RemoteResults,
 )
-from pulser.json.utils import make_json_compatible
-from pulser.backend.abc import Backend
-from pulser.backend.results import Results, ResultsSequence
+from pulser.backend.qpu import QPUBackend
+from pulser.backend.results import Results
 from pulser.devices import Device
+from pulser.json.utils import make_json_compatible
 
 from scaleway_qaas_client.v1alpha1 import QaaSClient, QaaSPlatform, QaaSJobResult
 
@@ -54,26 +54,64 @@ class ScalewayQuantumService(RemoteConnection):
         sequence: Sequence,
         wait: bool = False,
         open: bool = False,
-        batch_id: str | None = None,
+        batch_id: Optional[str] = None,
         **kwargs,
     ) -> RemoteResults:
+        job_params = kwargs.get("job_params", [])
 
+        sequence = self.update_sequence_device(sequence)
+        QPUBackend.validate_job_params(job_params, sequence.device.max_runs)
+
+        if batch_id:
+            job_ids = self._create_jobs(
+                session_id=batch_id,
+                sequence=sequence,
+                job_params=job_params,
+            )
+        else:
+            session = self._client.create_session(
+                platform_id=platform_id,
+                name=f"pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
+            )
+
+            batch_id = session.id
+
+            job_ids = self._create_jobs(
+                session_id=batch_id,
+                sequence=sequence,
+                job_params=job_params,
+            )
+
+            if wait:
+                while any(
+                    job.status in ["waiting", "running"]
+                    for job in self._client.list_jobs(session_id=batch_id)
+                ):
+                    time.sleep(3)
+
+        return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
+
+    def _create_jobs(
+        self, session_id: str, sequence: Sequence, job_params: List[JobParams]
+    ) -> List[str]:
         sequence = self._add_measurement_to_sequence(sequence)
-        emulator = kwargs.get("emulator", None)
-        job_params: list[JobParams] = make_json_compatible(kwargs.get("job_params", []))
+        job_params = make_json_compatible(job_params)
 
-        if sequence.is_parametrized() or sequence.is_register_mappable():
-            for params in job_params:
+        job_ids = []
+
+        for params in job_params:
+            if sequence.is_parametrized() or sequence.is_register_mappable():
                 vars = params.get("variables", {})
                 sequence.build(**vars)
 
-        configuration = self._convert_configuration(
-            config=kwargs.get("config", None),
-            emulator=emulator,
-            strict_validation=False,
-        )
+            payload = {
+                "sequence": sequence.to_abstract_repr(),
+                "params": params,
+            }
+            job = self._client.create_job(session_id=session_id, payload=payload)
+            job_ids.append(job.id)
 
-        payload = sequence.to_abstract_repr()
+        return job_ids
 
     def _get_data_from_job_result(self, job_result: QaaSJobResult) -> str:
         result = job_result.result
