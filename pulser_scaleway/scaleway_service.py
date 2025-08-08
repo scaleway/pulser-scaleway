@@ -65,7 +65,6 @@ class ScalewayQuantumService(RemoteConnection):
         if batch_id:
             job_ids = self._create_jobs(
                 session_id=batch_id,
-                sequence=sequence,
                 job_params=job_params,
             )
         else:
@@ -76,16 +75,25 @@ class ScalewayQuantumService(RemoteConnection):
                     f"no platform available with name {sequence.device.name}"
                 )
 
+            sequence = self._add_measurement_to_sequence(sequence)
+
+            if sequence.is_parametrized() or sequence.is_register_mappable():
+                for params in job_params:
+                    vars = params.get("variables", {})
+                    sequence.build(**vars)
+
+            model = self._client.create_model(payload=sequence.to_abstract_repr())
+
             session = self._client.create_session(
                 platform_id=platforms[0].id,
-                name=f"pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
+                name=f"qs-pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
+                model_id=model.id,
             )
 
             batch_id = session.id
 
             job_ids = self._create_jobs(
                 session_id=batch_id,
-                sequence=sequence,
                 job_params=job_params,
             )
 
@@ -94,28 +102,18 @@ class ScalewayQuantumService(RemoteConnection):
                     job.status in ["waiting", "running"]
                     for job in self._client.list_jobs(session_id=batch_id)
                 ):
-                    time.sleep(3)
+                    time.sleep(2)
 
         return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
 
     def _create_jobs(
         self, session_id: str, sequence: Sequence, job_params: List[JobParams]
     ) -> List[str]:
-        sequence = self._add_measurement_to_sequence(sequence)
         job_params = make_json_compatible(job_params)
-
         job_ids = []
 
         for params in job_params:
-            if sequence.is_parametrized() or sequence.is_register_mappable():
-                vars = params.get("variables", {})
-                sequence.build(**vars)
-
-            payload = {
-                "sequence": sequence.to_abstract_repr(),
-                "params": params,
-            }
-            job = self._client.create_job(session_id=session_id, payload=payload)
+            job = self._client.create_job(session_id=session_id, parameters=params)
             job_ids.append(job.id)
 
         return job_ids
