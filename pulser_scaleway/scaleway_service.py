@@ -30,6 +30,7 @@ from pulser.backend.remote import (
 )
 
 # from pulser.backend.qpu import QPUBackend
+from pulser.backend.config import EmulationConfig, EmulatorConfig
 from pulser.backend.results import Results
 from pulser.devices import Device
 from pulser.json.utils import make_json_compatible
@@ -55,12 +56,11 @@ class ScalewayQuantumService(RemoteConnection):
         sequence: Sequence,
         wait: bool = False,
         batch_id: Optional[str] = None,
+        device_type: Optional[str] = None,
+        backend_configuration: Optional[EmulationConfig] = None,
         **kwargs,
     ) -> RemoteResults:
         job_params = kwargs.get("job_params", [])
-
-        # sequence = self.update_sequence_device(sequence)
-        # QPUBackend.validate_job_params(job_params, sequence.device.max_runs)
 
         if batch_id:
             job_ids = self._create_jobs(
@@ -68,12 +68,11 @@ class ScalewayQuantumService(RemoteConnection):
                 job_params=job_params,
             )
         else:
-            platforms = self._client.list_platforms(name=sequence.device.name)
+            device_name = device_type or sequence.device.name
+            platforms = self._client.list_platforms(name=device_name)
 
             if len(platforms) == 0:
-                raise Exception(
-                    f"no platform available with name {sequence.device.name}"
-                )
+                raise Exception(f"no platform available with name {device_name}")
 
             sequence = self._add_measurement_to_sequence(sequence)
 
@@ -82,7 +81,18 @@ class ScalewayQuantumService(RemoteConnection):
                     vars = params.get("variables", {})
                     sequence.build(**vars)
 
-            model = self._client.create_model(payload=sequence.to_abstract_repr())
+            backend_configuration_str = (
+                backend_configuration.to_abstract_repr()
+                if backend_configuration
+                else None
+            )
+
+            model = self._client.create_model(
+                payload={
+                    "sequence": sequence.to_abstract_repr(),
+                    "backend_configuration": backend_configuration_str,
+                }
+            )
 
             session = self._client.create_session(
                 platform_id=platforms[0].id,
@@ -106,9 +116,7 @@ class ScalewayQuantumService(RemoteConnection):
 
         return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
 
-    def _create_jobs(
-        self, session_id: str, sequence: Sequence, job_params: List[JobParams]
-    ) -> List[str]:
+    def _create_jobs(self, session_id: str, job_params: List[JobParams]) -> List[str]:
         job_params = make_json_compatible(job_params)
         job_ids = []
 
@@ -213,7 +221,7 @@ class ScalewayQuantumService(RemoteConnection):
         platforms = self._client.list_platforms(provider_name="pasqal")
 
         def _plt_to_device(plt: QaaSPlatform) -> Device:
-            metadata = plt.metadata
+            metadata = plt.metadata or {}
 
             return Device(
                 name=plt.name,
