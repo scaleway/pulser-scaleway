@@ -55,6 +55,7 @@ class ScalewayQuantumService(RemoteConnection):
         self,
         sequence: Sequence,
         wait: bool = False,
+        open: bool = False,
         batch_id: Optional[str] = None,
         device_type: Optional[str] = None,
         backend_configuration: Optional[EmulationConfig] = None,
@@ -98,6 +99,8 @@ class ScalewayQuantumService(RemoteConnection):
                 platform_id=platforms[0].id,
                 name=f"qs-pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
                 model_id=model.id,
+                max_duration="12h",
+                max_idle_duration="10m",
             )
 
             batch_id = session.id
@@ -113,6 +116,9 @@ class ScalewayQuantumService(RemoteConnection):
                     for job in self._client.list_jobs(session_id=batch_id)
                 ):
                     time.sleep(2)
+
+                if not open:
+                    self._close_batch(batch_id)
 
         return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
 
