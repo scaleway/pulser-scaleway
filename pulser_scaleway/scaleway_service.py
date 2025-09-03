@@ -226,13 +226,22 @@ class ScalewayQuantumService(RemoteConnection):
         platforms = self._client.list_platforms(provider_name="pasqal")
 
         def _plt_to_device(plt: QaaSPlatform) -> Device:
-            metadata = plt.metadata or {}
+            metadata_str = plt.metadata or "{}"
+            metadata = json.loads(metadata_str) or {}
+            specs_str = metadata.get("specs") or "{}"
+            specs = json.loads(specs_str) or {}
+
+            print("METADATA", metadata)
+            print("SPEC", specs)
 
             return Device(
                 name=plt.name,
-                max_runs=plt.max_shot_count,
-                max_atom_num=plt.max_qubit_count,
-                **metadata,
+                max_atom_num=specs.pop("max_atom_num"),
+                max_radial_distance=specs.pop("max_radial_distance"),
+                min_atom_distance=specs.pop("min_atom_distance"),
+                dimensions=specs.pop("dimensions"),
+                rydberg_level=specs.pop("rydberg_level"),
+                **specs,
             )
 
         devices = {plt.name: _plt_to_device(plt) for plt in platforms}
