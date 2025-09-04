@@ -14,11 +14,10 @@
 import os
 import numpy as np
 
-from pulser import Pulse, Register, Sequence, BlackmanWaveform, RampWaveform
-from pulser.backends import QPUBackend
-from pulser.devices import DigitalAnalogDevice, AnalogDevice
+from pulser import Pulse, Sequence, BlackmanWaveform, RampWaveform
+from pulser.devices import AnalogDevice
 
-from pulser_scaleway import ScalewayQuantumService
+from pulser_scaleway import ScalewayQuantumService, ScalewayBackend
 
 
 def test_simple():
@@ -28,17 +27,21 @@ def test_simple():
         url=os.getenv("PULSER_SCALEWAY_API_URL"),
     )
 
-    reg = Register({"q0": (-5, 0), "q1": (5, 0)})
+    print(qaas_connection.fetch_available_devices())
 
-    seq = Sequence(reg, AnalogDevice)
-    seq.declare_channel("rydberg_global", "rydberg_global")
+    register = AnalogDevice.pre_calibrated_layouts[0].hexagonal_register(12)
+
+    seq = Sequence(register, AnalogDevice)
+    seq.declare_channel("rydberg", "rydberg_global")
     t = seq.declare_variable("t", dtype=int)
 
     amp_wf = BlackmanWaveform(t, np.pi)
     det_wf = RampWaveform(t, -5, 5)
-    seq.add(Pulse(amp_wf, det_wf, 0), "rydberg_global")
+    seq.add(Pulse(amp_wf, det_wf, 0), "rydberg")
 
-    backend = QPUBackend(sequence=seq.build(t=2000), connection=qaas_connection)
+    backend = ScalewayBackend(
+        name="pasqal_fresnel", sequence=seq.build(t=2000), connection=qaas_connection
+    )
 
     results = backend.run(
         job_params=[
