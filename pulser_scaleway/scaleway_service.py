@@ -33,6 +33,7 @@ from pulser.backend.config import EmulationConfig
 from pulser.backend.results import Results
 from pulser.devices import Device
 from pulser.json.utils import make_json_compatible
+from pulser.json.abstract_repr.deserializer import deserialize_device
 
 from scaleway_qaas_client.v1alpha1 import QaaSClient, QaaSPlatform, QaaSJobResult
 
@@ -231,18 +232,7 @@ class ScalewayQuantumService(RemoteConnection):
             specs_str = metadata.get("specs") or "{}"
             specs = json.loads(specs_str) or {}
 
-            print("METADATA", metadata)
-            print("SPEC", specs)
-
-            return Device(
-                name=plt.name,
-                max_atom_num=specs.pop("max_atom_num"),
-                max_radial_distance=specs.pop("max_radial_distance"),
-                min_atom_distance=specs.pop("min_atom_distance"),
-                dimensions=specs.pop("dimensions"),
-                rydberg_level=specs.pop("rydberg_level"),
-                **specs,
-            )
+            return deserialize_device(specs)
 
         devices = {plt.name: _plt_to_device(plt) for plt in platforms}
 
