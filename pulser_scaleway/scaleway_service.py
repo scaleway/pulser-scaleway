@@ -91,7 +91,6 @@ class ScalewayQuantumService(RemoteConnection):
             model = self._client.create_model(
                 payload={
                     "sequence": sequence.to_abstract_repr(),
-                    "backend_configuration": backend_configuration_str,
                 }
             )
 
@@ -101,6 +100,9 @@ class ScalewayQuantumService(RemoteConnection):
                 model_id=model.id,
                 max_duration="12h",
                 max_idle_duration="10m",
+                parameters={
+                    "backend_configuration": backend_configuration_str,
+                },
             )
 
             batch_id = session.id
@@ -127,7 +129,9 @@ class ScalewayQuantumService(RemoteConnection):
         job_ids = []
 
         for params in job_params:
-            job = self._client.create_job(session_id=session_id, parameters=params)
+            job = self._client.create_job(
+                session_id=session_id, parameters=params, payload=None
+            )
             job_ids.append(job.id)
 
         return job_ids
