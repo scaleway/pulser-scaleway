@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.from typing import Optional, List, Dict
 import os
-import typing
 import httpx
 import json
 import time
 
+from functools import lru_cache
 from typing import Optional, Mapping, List, Dict, Tuple
 from datetime import datetime
 
@@ -30,7 +30,7 @@ from pulser.backend.remote import (
 )
 
 from pulser.backend.config import EmulationConfig
-from pulser.backend.results import Results
+from pulser.result import Result, SampledResult
 from pulser.devices import Device
 from pulser.json.utils import make_json_compatible
 from pulser.json.abstract_repr.deserializer import deserialize_device
@@ -136,45 +136,80 @@ class ScalewayQuantumService(RemoteConnection):
 
         return job_ids
 
-    def _get_data_from_job_result(self, job_result: QaaSJobResult) -> str:
+    def _get_job_result_data(self, job_result: QaaSJobResult) -> str:
         result = job_result.result
 
         if result is None or result == "":
             url = job_result.url
 
             if url is not None:
-                resp = httpx.get(url.replace("http://s3", "http://localhost"))
-                resp.raise_for_status()
-
-                return resp.text
+                return self._get_data(url)
             else:
                 raise Exception("Got result with empty data and url fields")
         else:
             return result
 
-    def _get_result(self, job_id: str) -> Results:
+    @lru_cache
+    def _get_batch_sequence(self, session_id: str) -> Sequence:
+        session = self._client.get_session(session_id)
+        model = self._client.get_model(session.model_id)
+
+        model_data = self._get_data(model.url)
+        sequence_str = json.loads(model_data).get("sequence_builder")
+
+        sequence = Sequence.from_abstract_repr(sequence_str)
+
+        return sequence
+
+    @lru_cache
+    def _get_job_params(self, job_id: str) -> Dict:
+        job = self._client.get_job(job_id)
+
+        return json.loads(job.parameters) if job.parameters else {}
+
+    def _get_data(self, url: str) -> str:
+        resp = httpx.get(url.replace("http://s3", "http://localhost"))
+        resp.raise_for_status()
+
+        return resp.text
+
+    def _get_result(self, job_id: str, session_id: str) -> SampledResult:
         job_results = self._client.list_job_results(job_id=job_id)
 
         if job_results is None or len(job_results) == 0:
             return None
 
-        job_result = self._get_data_from_job_result(job_results[0])
+        job_params = self._get_job_params(job_id)
+        sequence = self._get_batch_sequence(session_id)
+        job_result = self._get_job_result_data(job_results[0])
 
-        return Results.from_abstract_repr(json.loads(job_result))
+        reg = sequence.get_register(include_mappable=True)
+        meas_basis = sequence.get_measurement_basis()
+        all_qubit_ids = reg.qubit_ids
 
-    def _fetch_result(
-        self, batch_id: str, job_ids: List[str] | None
-    ) -> typing.Sequence[Results]:
+        size = None
+        vars = job_params.get("variables")
+
+        if vars and "qubits" in vars:
+            size = len(vars["qubits"])
+
+        return SampledResult(
+            atom_order=all_qubit_ids[slice(size)],
+            meas_basis=meas_basis,
+            bitstring_counts=json.loads(job_result)["counter"],
+        )
+
+    def _fetch_result(self, batch_id: str, job_ids: List[str] | None) -> List[Result]:
         """Fetches the results of a completed batch."""
         jobs = self._client.list_jobs(session_id=batch_id)
 
-        jobs_results = [self._get_result(job.id) for job in jobs]
+        jobs_results = [self._get_result(job.id, batch_id) for job in jobs]
 
         return jobs_results
 
     def _query_job_progress(
         self, batch_id: str
-    ) -> Mapping[str, Tuple[JobStatus, Results | None]]:
+    ) -> Mapping[str, Tuple[JobStatus, Result | None]]:
         """Fetches the status and results of all the jobs in a batch.
 
         Unlike `_fetch_result`, this method does not raise an error if some
@@ -196,7 +231,7 @@ class ScalewayQuantumService(RemoteConnection):
             job.id: (
                 status_mapping.get(job.status, JobStatus.ERROR),
                 (
-                    self._get_result(job.id)
+                    self._get_result(job.id, batch_id)
                     if status_mapping.get(job.status, JobStatus.ERROR) == JobStatus.DONE
                     else None
                 ),
