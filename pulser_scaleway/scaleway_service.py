@@ -37,6 +37,9 @@ from pulser.json.abstract_repr.deserializer import deserialize_device
 
 from scaleway_qaas_client.v1alpha1 import QaaSClient, QaaSPlatform, QaaSJobResult
 
+_DEFAULT_PLATFORM_PROVIDER = "pasqal"
+_DEFAULT_URL = "https://api.scaleway.com"
+
 
 class ScalewayQuantumService(RemoteConnection):
     def __init__(
@@ -47,7 +50,7 @@ class ScalewayQuantumService(RemoteConnection):
     ):
         secret_key = secret_key or os.getenv("PULSER_SCALEWAY_SECRET_KEY")
         project_id = project_id or os.getenv("PULSER_SCALEWAY_PROJECT_ID")
-        url = url or os.getenv("PULSER_SCALEWAY_API_URL")
+        url = url or os.getenv("PULSER_SCALEWAY_API_URL") or _DEFAULT_URL
 
         self._client = QaaSClient(project_id=project_id, secret_key=secret_key, url=url)
 
@@ -270,7 +273,9 @@ class ScalewayQuantumService(RemoteConnection):
 
     def fetch_available_devices(self) -> Dict[str, Device]:
         """Fetches the devices available through this connection."""
-        platforms = self._client.list_platforms(provider_name="pasqal")
+        platforms = self._client.list_platforms(
+            provider_name=_DEFAULT_PLATFORM_PROVIDER
+        )
 
         def _plt_to_device(plt: QaaSPlatform) -> Device:
             metadata_str = plt.metadata or "{}"
