@@ -155,7 +155,7 @@ class ScalewayQuantumService(RemoteConnection):
         model = self._client.get_model(session.model_id)
 
         model_data = self._get_data(model.url)
-        sequence_str = json.loads(model_data).get("sequence_builder")
+        sequence_str = json.loads(model_data).get("sequence")
 
         sequence = Sequence.from_abstract_repr(sequence_str)
 
@@ -168,7 +168,14 @@ class ScalewayQuantumService(RemoteConnection):
         return json.loads(job.parameters) if job.parameters else {}
 
     def _get_data(self, url: str) -> str:
-        resp = httpx.get(url.replace("http://s3", "http://localhost"))
+        verify = True
+        local_setup_pattern = "http://s3"
+
+        if local_setup_pattern in url:
+            verify = False
+            url = url.replace(local_setup_pattern, "http://localhost")
+
+        resp = httpx.get(url=url, verify=verify)
         resp.raise_for_status()
 
         return resp.text
