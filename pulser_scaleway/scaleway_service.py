@@ -171,14 +171,7 @@ class ScalewayQuantumService(RemoteConnection):
         return json.loads(job.parameters) if job.parameters else {}
 
     def _get_data(self, url: str) -> str:
-        verify = True
-        local_setup_pattern = "http://s3"
-
-        if local_setup_pattern in url:
-            verify = False
-            url = url.replace(local_setup_pattern, "http://localhost")
-
-        resp = httpx.get(url=url, verify=verify)
+        resp = httpx.get(url=url)
         resp.raise_for_status()
 
         return resp.text
@@ -258,7 +251,7 @@ class ScalewayQuantumService(RemoteConnection):
         status_mapping = {
             "starting": BatchStatus.PENDING,
             "running": BatchStatus.RUNNING,
-            "stopping": BatchStatus.CANCELED,
+            "stopping": BatchStatus.DONE,
             "stopped": BatchStatus.DONE,
         }
 
