@@ -15,6 +15,7 @@ import os
 import numpy as np
 
 from pulser import Pulse, Sequence, BlackmanWaveform, RampWaveform
+from pulser.backend.remote import BatchStatus
 from pulser.register import Register
 from pulser.devices import AnalogDevice
 
@@ -60,5 +61,5 @@ def test_simple():
         wait=True,
     )
 
-    print(results.results)
-    print(results.get_batch_status())
+    assert len(results.results) == 2
+    assert results.get_batch_status() == BatchStatus.DONE
