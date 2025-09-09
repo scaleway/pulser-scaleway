@@ -15,6 +15,7 @@ import os
 import numpy as np
 
 from pulser import Pulse, Sequence, BlackmanWaveform, RampWaveform
+from pulser.register import Register
 from pulser.devices import AnalogDevice
 
 from pulser_scaleway import ScalewayQuantumService, ScalewayBackend
@@ -27,11 +28,19 @@ def test_simple():
         url=os.getenv("PULSER_SCALEWAY_API_URL"),
     )
 
-    print(qaas_connection.fetch_available_devices())
+    real = False
 
-    register = AnalogDevice.pre_calibrated_layouts[0].hexagonal_register(12)
+    if real:
+        # Real device
+        devices = qaas_connection.fetch_available_devices()
+        fresnel_device = devices["pasqal_fresnel"]
+        register = Register.square(5, 5).with_automatic_layout(fresnel_device)
+        seq = Sequence(register, fresnel_device)
+    else:
+        # Fake device
+        register = AnalogDevice.pre_calibrated_layouts[0].hexagonal_register(12)
+        seq = Sequence(register, AnalogDevice)
 
-    seq = Sequence(register, AnalogDevice)
     seq.declare_channel("rydberg", "rydberg_global")
     t = seq.declare_variable("t", dtype=int)
 
@@ -40,14 +49,16 @@ def test_simple():
     seq.add(Pulse(amp_wf, det_wf, 0), "rydberg")
 
     backend = ScalewayBackend(
-        name="pasqal_fresnel", sequence=seq.build(t=2000), connection=qaas_connection
+        name="pasqal_fresnel", sequence=seq, connection=qaas_connection
     )
 
     results = backend.run(
         job_params=[
             {"runs": 100, "variables": {"t": 1000}},
-            {"runs": 50, "variables": {"t": 2000}},
-        ]
+            {"runs": 20, "variables": {"t": 2000}},
+        ],
+        wait=True,
     )
 
-    print(results)
+    print(results.results)
+    print(results.get_batch_status())

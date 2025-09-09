@@ -267,7 +267,7 @@ class ScalewayQuantumService(RemoteConnection):
     def fetch_available_devices(self) -> Dict[str, Device]:
         """Fetches the devices available through this connection."""
         platforms = self._client.list_platforms(
-            provider_name=_DEFAULT_PLATFORM_PROVIDER
+            provider_name=_DEFAULT_PLATFORM_PROVIDER, platform_type="qpu"
         )
 
         def _plt_to_device(plt: QaaSPlatform) -> Device:
