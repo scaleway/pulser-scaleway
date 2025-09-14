@@ -64,7 +64,6 @@ class ScalewayQuantumService(RemoteConnection):
         **kwargs,
     ) -> RemoteResults:
         job_params = kwargs.get("job_params", [])
-        backend_name = kwargs.get("backend_name", [])
 
         if batch_id:
             job_ids = self._create_jobs(
@@ -72,11 +71,11 @@ class ScalewayQuantumService(RemoteConnection):
                 job_params=job_params,
             )
         else:
-            # device_name = device_type or sequence.device.name
-            platforms = self._client.list_platforms(name=backend_name)
+            device_name = sequence.device.name
+            platforms = self._client.list_platforms(name=device_name)
 
             if len(platforms) == 0:
-                raise Exception(f"no platform available with name {backend_name}")
+                raise Exception(f"no platform available with name {device_name}")
 
             sequence = self._add_measurement_to_sequence(sequence)
 
@@ -267,14 +266,24 @@ class ScalewayQuantumService(RemoteConnection):
     def fetch_available_devices(self) -> Dict[str, Device]:
         """Fetches the devices available through this connection."""
         platforms = self._client.list_platforms(
-            provider_name=_DEFAULT_PLATFORM_PROVIDER, platform_type="qpu"
+            provider_name=_DEFAULT_PLATFORM_PROVIDER
         )
 
         def _plt_to_device(plt: QaaSPlatform) -> Device:
-            metadata_str = plt.metadata or "{}"
-            metadata = json.loads(metadata_str) or {}
-            specs_str = metadata.get("specs") or "{}"
-            specs = json.loads(specs_str) or {}
+            metadata = plt.metadata or "{}"
+
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata) or {}
+
+            specs = metadata.get("specs") or "{}"
+
+            if isinstance(specs, str):
+                specs = json.loads(specs) or {}
+
+            if isinstance(specs, str):
+                specs = json.loads(specs)
+                specs["name"] = plt.name
+                specs = json.dumps(specs)
 
             return deserialize_device(specs)
 
