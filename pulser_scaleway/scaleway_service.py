@@ -39,20 +39,34 @@ from scaleway_qaas_client.v1alpha1 import QaaSClient, QaaSPlatform, QaaSJobResul
 
 _DEFAULT_PLATFORM_PROVIDER = "pasqal"
 _DEFAULT_URL = "https://api.scaleway.com"
+_DEFAULT_FETCH_INTERVAL = 2  # in second
 
 
 class ScalewayQuantumService(RemoteConnection):
+    """Sacleway Quantum as a Service connection bridge
+
+    :param project_id: optional UUID of the Scaleway Project, if the provided ``project_id`` is None, the value is loaded from the PULSER_SCALEWAY_PROJECT_ID environment variables
+
+    :param secret_key: optional authentication token required to access the Scaleway API, if the provided ``secret_key`` is None, the value is loaded from the PULSER_SCALEWAY_SECRET_KEY environment variables
+
+    :param url: optional value, endpoint URL of the API, if the provided ``url`` is None, the value is loaded from the PULSER_SCALEWAY_API_URL environment variables
+
+    :param deduplication_id: optional value, if you created your QPU session from the Scaleway's console, console.scaleway.com/qaas, you can retrieve your session by providing the same deduplication_id
+    """
+
     def __init__(
         self,
         project_id: Optional[str] = None,
         secret_key: Optional[str] = None,
         url: Optional[str] = None,
+        deduplication_id: Optional[str] = None,
     ):
         secret_key = secret_key or os.getenv("PULSER_SCALEWAY_SECRET_KEY")
         project_id = project_id or os.getenv("PULSER_SCALEWAY_PROJECT_ID")
         url = url or os.getenv("PULSER_SCALEWAY_API_URL") or _DEFAULT_URL
 
         self._client = QaaSClient(project_id=project_id, secret_key=secret_key, url=url)
+        self._session_deduplication_id = deduplication_id
 
     def submit(
         self,
@@ -102,6 +116,7 @@ class ScalewayQuantumService(RemoteConnection):
                 model_id=model.id,
                 max_duration="12h",
                 max_idle_duration="10m",
+                deduplication_id=self._session_deduplication_id,
                 parameters={
                     "backend_configuration": backend_configuration_str,
                 },
@@ -119,7 +134,7 @@ class ScalewayQuantumService(RemoteConnection):
                     job.status in ["waiting", "running"]
                     for job in self._client.list_jobs(session_id=batch_id)
                 ):
-                    time.sleep(2)
+                    time.sleep(_DEFAULT_FETCH_INTERVAL)
 
                 if not open:
                     self._close_batch(batch_id)
