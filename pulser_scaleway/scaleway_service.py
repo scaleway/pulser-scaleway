@@ -42,8 +42,8 @@ _DEFAULT_URL = "https://api.scaleway.com"
 _DEFAULT_FETCH_INTERVAL = 2  # in second
 
 
-class ScalewayQuantumService(RemoteConnection):
-    """Sacleway Quantum as a Service connection bridge
+class ScalewayProvider(RemoteConnection):
+    """Sacleway Quantum as a Service connection bridge.
 
     :param project_id: optional UUID of the Scaleway Project, if the provided ``project_id`` is None, the value is loaded from the PULSER_SCALEWAY_PROJECT_ID environment variables
 

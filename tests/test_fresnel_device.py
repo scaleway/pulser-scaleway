@@ -19,17 +19,17 @@ from pulser.backend import QPUBackend
 from pulser.backend.remote import BatchStatus
 from pulser.register import Register
 
-from pulser_scaleway import ScalewayQuantumService
+from pulser_scaleway import ScalewayProvider
 
 
 def test_simple():
-    qaas_connection = ScalewayQuantumService(
+    qaas_connection = ScalewayProvider(
         project_id=os.environ["PULSER_SCALEWAY_PROJECT_ID"],
         secret_key=os.environ["PULSER_SCALEWAY_SECRET_KEY"],
         url=os.getenv("PULSER_SCALEWAY_API_URL"),
     )
 
-    platform = "pasqal_fresnel"
+    platform = "pasqal_fresnel_simulation"
 
     devices = qaas_connection.fetch_available_devices()
     fresnel_device = devices[platform]

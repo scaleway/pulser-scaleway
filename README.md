@@ -16,19 +16,18 @@ pip install pulser-scaleway
 
 ## Getting started
 
-To instantiate the `ScalewayQuantumService`, you need to have an access token and a project_id
+To instantiate the `ScalewayProvider`, you need to have an access token and a project_id
 
 ```python
-from pulser_scaleway import ScalewayQuantumService
+from pulser_scaleway import ScalewayProvider
 
-qaas_connection = ScalewayQuantumService(
+qaas_connection = ScalewayProvider(
     project_id=os.environ["PULSER_SCALEWAY_PROJECT_ID"],
     secret_key=os.environ["PULSER_SCALEWAY_SECRET_KEY"],
-    url=os.getenv("PULSER_SCALEWAY_API_URL"),
 )
 ```
 
-Alternatively, the `ScalewayQuantumService` can discover your access token from environment variables:
+Alternatively, the `ScalewayProvider` can discover your access token from environment variables:
 
 ```
 export PULSER_SCALEWAY_PROJECT_ID="project_id"
@@ -38,9 +37,9 @@ export PULSER_SCALEWAY_SECRET_KEY="token"
 Then you can instantiate the provider without any arguments:
 
 ```python
-from pulser_scaleway import ScalewayQuantumService
+from pulser_scaleway import ScalewayProvider
 
-qaas_connection = ScalewayQuantumService()
+qaas_connection = ScalewayProvider()
 ```
 
 Now you have access to the supported backends and can design your pulse sequence. [See the technical documentation](https://docs.pasqal.com/cloud/first-job/) on how to write a sequence.
