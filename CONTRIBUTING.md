@@ -1,6 +1,6 @@
-# Contribute to `qiskit-scaleway`
+# Contribute to `pulser-scaleway`
 
-`qiskit-scaleway` is Apache 2.0 licensed and accepts contributions via GitHub.
+`pulser-scaleway` is Apache 2.0 licensed and accepts contributions via GitHub.
 This document will cover how to contribute to the project and report issues.
 
 <p align="center"><img width="50%" src="docs/static_files/sdk-artwork.png" /></p>
@@ -32,7 +32,7 @@ If there is a match, thumbs up the issue with a 👍 and leave a comment if you 
 
 When reporting an issue, include the following:
 
-- The version of `qiskit-scaleway` you are using
+- The version of `pulser-scaleway` you are using
 - Python version
 - The target backend is applicable
 
@@ -42,7 +42,7 @@ When requesting a feature, some of the questions we want to answer are:
 
 - What value does this feature bring to end users?
 - How urgent is the need (nice to have feature or need to have)?
-- Does this align with the goals of `qiskit-scaleway`?
+- Does this align with the goals of `pulser-scaleway`?
 
 ## Contributing code
 
@@ -54,9 +54,9 @@ To submit code:
 - Create a topic branch from where you want to base your work (usually master)
 - Add tests to cover contributed code
 - Push your commit(s) to your topic branch on your fork
-- Open a pull request against `qiskit-scaleway` master branch that follows [PR guidelines](#pull-request-guidelines)
+- Open a pull request against `pulser-scaleway` master branch that follows [PR guidelines](#pull-request-guidelines)
 
-The maintainers of `qiskit-scaleway` use a "Let's Get This Merged" (LGTM) message in the pull request to note that the commits are ready to merge.
+The maintainers of `pulser-scaleway` use a "Let's Get This Merged" (LGTM) message in the pull request to note that the commits are ready to merge.
 After one or more maintainer states LGTM, we will merge.
 If you have questions or comments on your code, feel free to correct these in your branch through new commits.
 
