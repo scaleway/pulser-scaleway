@@ -133,7 +133,10 @@ class ScalewayProvider(RemoteConnection):
                 while any(
                     job.status in ["waiting", "running"]
                     for job in self._client.list_jobs(session_id=batch_id)
-                ):
+                ) and self._client.get_session(session_id=batch_id).status in [
+                    "starting",
+                    "running",
+                ]:
                     time.sleep(_DEFAULT_FETCH_INTERVAL)
 
                 if not open:
@@ -162,7 +165,7 @@ class ScalewayProvider(RemoteConnection):
             if url is not None:
                 return self._get_data(url)
             else:
-                raise Exception("Got result with empty data and url fields")
+                raise RuntimeError("Got result with empty data and url fields")
         else:
             return result
 
@@ -260,16 +263,25 @@ class ScalewayProvider(RemoteConnection):
 
     def _get_batch_status(self, batch_id: str) -> BatchStatus:
         """Gets the status of a batch from its ID."""
+        jobs = self._client.list_jobs(session_id=batch_id)
+
+        error_in_jobs = any(
+            job.status in ["cancelled", "cancelling", "error"] for job in jobs
+        )
+
+        if error_in_jobs:
+            return BatchStatus.ERROR
+
         session = self._client.get_session(session_id=batch_id)
 
-        status_mapping = {
+        session_status_mapping = {
             "starting": BatchStatus.PENDING,
             "running": BatchStatus.RUNNING,
             "stopping": BatchStatus.DONE,
             "stopped": BatchStatus.DONE,
         }
 
-        return status_mapping.get(session.status, BatchStatus.ERROR)
+        return session_status_mapping.get(session.status, BatchStatus.ERROR)
 
     def _get_job_ids(self, batch_id: str) -> List[str]:
         """Gets all the job IDs within a batch."""
