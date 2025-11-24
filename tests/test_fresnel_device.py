@@ -29,7 +29,7 @@ def test_simple():
         url=os.getenv("PULSER_SCALEWAY_API_URL"),
     )
 
-    platform = "pasqal_fresnel_simulation"
+    platform = "EMU-FRESNEL-100PQ"
 
     devices = qaas_connection.fetch_available_devices()
     fresnel_device = devices[platform]

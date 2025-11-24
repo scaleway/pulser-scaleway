@@ -26,7 +26,7 @@ qaas_connection = ScalewayProvider(
     secret_key=os.environ["PULSER_SCALEWAY_SECRET_KEY"],
 )
 
-platform = "pasqal_fresnel_simulation"
+platform = "QPU-FRESNEL-100PQ-FR"
 
 devices = qaas_connection.fetch_available_devices()
 fresnel_device = devices[platform]
