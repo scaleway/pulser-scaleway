@@ -48,7 +48,7 @@ Now you have access to the supported backends and can design your pulse sequence
 ```python
 # Retrieve all QPU devices (emulated or real)
 devices = qaas_connection.fetch_available_devices()
-fresnel_device = devices["pasqal_fresnel"]
+fresnel_device = devices["QPU-FRESNEL-100PQ-FR"]
 
 # Create a register of trapped atoms before performing operation on them
 register = Register.square(5, 5).with_automatic_layout(fresnel_device)
