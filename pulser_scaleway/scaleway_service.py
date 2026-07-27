@@ -17,7 +17,7 @@ import json
 import time
 
 from functools import lru_cache
-from typing import Optional, Mapping, List, Dict, Tuple
+from typing import Optional, Mapping, List, Dict, Tuple, cast
 from datetime import datetime
 
 from pulser import Sequence
@@ -27,8 +27,10 @@ from pulser.backend.remote import (
     JobStatus,
     RemoteConnection,
     RemoteResults,
+    RemoteResultsError,
 )
 
+from pulser.backend import Results
 from pulser.backend.config import EmulationConfig
 from pulser.result import Result, SampledResult
 from pulser.devices import Device
@@ -201,7 +203,8 @@ class ScalewayProvider(RemoteConnection):
 
         job_params = self._get_job_params(job_id)
         sequence = self._get_batch_sequence(session_id)
-        job_result = self._get_job_result_data(job_results[0])
+        job_result: str = self._get_job_result_data(job_results[0])
+        job_result: dict = json.loads(job_result)
 
         reg = sequence.get_register(include_mappable=True)
         meas_basis = sequence.get_measurement_basis()
@@ -213,10 +216,15 @@ class ScalewayProvider(RemoteConnection):
         if vars and "qubits" in vars:
             size = len(vars["qubits"])
 
+        if job_result.get("serialised_results", None) is not None:
+            return Results.from_abstract_repr(
+                cast(str, job_result["serialised_results"])
+            )
+
         return SampledResult(
             atom_order=all_qubit_ids[slice(size)],
             meas_basis=meas_basis,
-            bitstring_counts=json.loads(job_result)["counter"],
+            bitstring_counts=job_result["counter"],
         )
 
     def _fetch_result(self, batch_id: str, job_ids: List[str] | None) -> List[Result]:
@@ -224,6 +232,11 @@ class ScalewayProvider(RemoteConnection):
         jobs = self._client.list_jobs(session_id=batch_id)
 
         jobs_results = [self._get_result(job.id, batch_id) for job in jobs]
+
+        if len(jobs_results) == 0:
+            raise RemoteResultsError(
+                f"The results are not yet available, job {id} status is {status}."
+            )
 
         return jobs_results
 
