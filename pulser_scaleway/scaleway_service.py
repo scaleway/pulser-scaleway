@@ -143,6 +143,8 @@ class ScalewayProvider(RemoteConnection):
 
                 if not open:
                     self._close_batch(batch_id)
+                    while self._client.get_session(session_id=batch_id).status != "stopped":
+                        time.sleep(_DEFAULT_FETCH_INTERVAL)
 
         return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
 
@@ -317,13 +319,14 @@ class ScalewayProvider(RemoteConnection):
 
             specs = metadata.get("specs") or "{}"
 
-            if isinstance(specs, str):
+            while isinstance(specs, str):
                 specs = json.loads(specs) or {}
 
-            if isinstance(specs, str):
-                specs = json.loads(specs)
-                specs["name"] = plt.name
-                specs = json.dumps(specs)
+            specs["name"] = plt.name
+            specs = json.dumps(specs)
+
+            print(f"\nDEBUG SPECS POUR LA PLATEFORME {plt.name}:")
+            print(json.dumps(specs, indent=4))
 
             return deserialize_device(specs)
 
