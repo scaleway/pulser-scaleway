@@ -20,7 +20,6 @@ from pulser.register import Register
 
 from pulser_scaleway import ScalewayProvider
 
-
 qaas_connection = ScalewayProvider(
     project_id=os.environ["PULSER_SCALEWAY_PROJECT_ID"],
     secret_key=os.environ["PULSER_SCALEWAY_SECRET_KEY"],
