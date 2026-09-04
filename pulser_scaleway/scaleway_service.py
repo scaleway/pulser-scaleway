@@ -208,8 +208,14 @@ class ScalewayProvider(RemoteConnection):
 
         job_params = self._get_job_params(job_id)
         sequence = self._get_batch_sequence(session_id)
-        job_result: str = self._get_job_result_data(job_results[0])
-        job_result: dict = json.loads(job_result)
+        job_result_str: str = self._get_job_result_data(job_results[0])
+        job_result: dict = json.loads(job_result_str)
+
+        if "tagmap" in job_result and "results" in job_result:
+            return Results.from_abstract_repr(job_result)
+
+        if job_result.get("serialised_results", None) is not None:
+            return Results.from_abstract_repr(str, job_result["serialised_results"])
 
         reg = sequence.get_register(include_mappable=True)
         meas_basis = sequence.get_measurement_basis()
@@ -220,11 +226,6 @@ class ScalewayProvider(RemoteConnection):
 
         if vars and "qubits" in vars:
             size = len(vars["qubits"])
-
-        if job_result.get("serialised_results", None) is not None:
-            return Results.from_abstract_repr(
-                cast(str, job_result["serialised_results"])
-            )
 
         return SampledResult(
             atom_order=all_qubit_ids[slice(size)],
