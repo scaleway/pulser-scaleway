@@ -325,13 +325,19 @@ class ScalewayProvider(RemoteConnection):
 
             while isinstance(specs, str):
                 specs = json.loads(specs) or {}
+            if not specs:
+                return None
 
             specs["name"] = plt.name
-            specs = json.dumps(specs)
+            specs_str = json.dumps(specs)
 
-            return deserialize_device(specs)
+            try:
+                return deserialize_device(specs_str)
+            except Exception as e:
+                print(f"Warning: Failed to deserialize device {plt.name}: {e}")
+                return None
 
-        devices = {plt.name: _plt_to_device(plt) for plt in platforms}
+        devices = {plt.name: dev for plt in platforms if (dev := _plt_to_device(plt)) is not None}
 
         return devices
 
