@@ -109,6 +109,7 @@ class ScalewayProvider(RemoteConnection):
             model = self._client.create_model(
                 payload={
                     "sequence": sequence.to_abstract_repr(),
+                    "backend_configuration": backend_configuration_str,
                 }
             )
 

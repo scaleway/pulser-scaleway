@@ -22,7 +22,7 @@ requirements = [r.strip() for r in requirements]
 
 setup(
     name="pulser_scaleway",
-    version="0.1.7",
+    version="0.1.8",
     project_urls={
         "Documentation": "https://www.scaleway.com/en/quantum-as-a-service/",
         "Source": "https://github.com/scaleway/pulser-scaleway",
