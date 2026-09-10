@@ -215,7 +215,7 @@ class ScalewayProvider(RemoteConnection):
             return Results.from_abstract_repr(job_result)
 
         if job_result.get("serialised_results", None) is not None:
-            return Results.from_abstract_repr(str, job_result["serialised_results"])
+            return Results.from_abstract_repr(job_result["serialised_results"])
 
         reg = sequence.get_register(include_mappable=True)
         meas_basis = sequence.get_measurement_basis()
