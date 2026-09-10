@@ -143,6 +143,11 @@ class ScalewayProvider(RemoteConnection):
 
                 if not open:
                     self._close_batch(batch_id)
+                    while (
+                        self._client.get_session(session_id=batch_id).status
+                        != "stopped"
+                    ):
+                        time.sleep(_DEFAULT_FETCH_INTERVAL)
 
         return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
 
@@ -203,8 +208,14 @@ class ScalewayProvider(RemoteConnection):
 
         job_params = self._get_job_params(job_id)
         sequence = self._get_batch_sequence(session_id)
-        job_result: str = self._get_job_result_data(job_results[0])
-        job_result: dict = json.loads(job_result)
+        job_result_str: str = self._get_job_result_data(job_results[0])
+        job_result: dict = json.loads(job_result_str)
+
+        if "tagmap" in job_result and "results" in job_result:
+            return Results.from_abstract_repr(job_result)
+
+        if job_result.get("serialised_results", None) is not None:
+            return Results.from_abstract_repr(job_result["serialised_results"])
 
         reg = sequence.get_register(include_mappable=True)
         meas_basis = sequence.get_measurement_basis()
@@ -215,11 +226,6 @@ class ScalewayProvider(RemoteConnection):
 
         if vars and "qubits" in vars:
             size = len(vars["qubits"])
-
-        if job_result.get("serialised_results", None) is not None:
-            return Results.from_abstract_repr(
-                cast(str, job_result["serialised_results"])
-            )
 
         return SampledResult(
             atom_order=all_qubit_ids[slice(size)],
@@ -317,17 +323,21 @@ class ScalewayProvider(RemoteConnection):
 
             specs = metadata.get("specs") or "{}"
 
-            if isinstance(specs, str):
+            while isinstance(specs, str):
                 specs = json.loads(specs) or {}
+            if not specs:
+                return None
 
-            if isinstance(specs, str):
-                specs = json.loads(specs)
-                specs["name"] = plt.name
-                specs = json.dumps(specs)
+            specs["name"] = plt.name
+            specs_str = json.dumps(specs)
 
-            return deserialize_device(specs)
+            try:
+                return deserialize_device(specs_str)
+            except Exception as e:
+                print(f"Warning: Failed to deserialize device {plt.name}: {e}")
+                return None
 
-        devices = {plt.name: _plt_to_device(plt) for plt in platforms}
+        devices = {plt.name: dev for plt in platforms if (dev := _plt_to_device(plt)) is not None}
 
         return devices
 
