@@ -241,9 +241,7 @@ class ScalewayProvider(RemoteConnection):
         jobs_results = [self._get_result(job.id, batch_id) for job in jobs]
 
         if len(jobs_results) == 0:
-            raise RemoteResultsError(
-                f"The results are not yet available, job {id} status is {status}."
-            )
+            raise RemoteResultsError(f"The results are not yet available.")
 
         return jobs_results
 
@@ -338,7 +336,11 @@ class ScalewayProvider(RemoteConnection):
                 print(f"Warning: Failed to deserialize device {plt.name}: {e}")
                 return None
 
-        devices = {plt.name: dev for plt in platforms if (dev := _plt_to_device(plt)) is not None}
+        devices = {
+            plt.name: dev
+            for plt in platforms
+            if (dev := _plt_to_device(plt)) is not None
+        }
 
         return devices
 
