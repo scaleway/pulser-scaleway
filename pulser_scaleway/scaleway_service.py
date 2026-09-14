@@ -38,6 +38,7 @@ from pulser.json.utils import make_json_compatible
 from pulser.json.abstract_repr.deserializer import deserialize_device
 
 from scaleway_qaas_client.v1alpha1 import QaaSClient, QaaSPlatform, QaaSJobResult
+from scaleway_qaas_client.v1alpha1.quantum_as_a_service_api_client import types
 
 _DEFAULT_PLATFORM_PROVIDER = "pasqal"
 _DEFAULT_URL = "https://api.scaleway.com"
@@ -145,8 +146,8 @@ class ScalewayProvider(RemoteConnection):
                 if not open:
                     self._close_batch(batch_id)
                     while (
-                        self._client.get_session(session_id=batch_id).status
-                        != "stopped"
+                        self._client.get_session(session_id=batch_id).terminated_at
+                        == types.UNSET
                     ):
                         time.sleep(_DEFAULT_FETCH_INTERVAL)
 
