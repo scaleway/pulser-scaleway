@@ -63,6 +63,8 @@ class ScalewayProvider(RemoteConnection):
         secret_key: Optional[str] = None,
         url: Optional[str] = None,
         deduplication_id: Optional[str] = None,
+        max_duration: Optional[str] = None,
+        max_idle_duration: Optional[str] = None,
     ):
         secret_key = secret_key or os.getenv("PULSER_SCALEWAY_SECRET_KEY")
         project_id = project_id or os.getenv("PULSER_SCALEWAY_PROJECT_ID")
@@ -70,6 +72,10 @@ class ScalewayProvider(RemoteConnection):
 
         self._client = QaaSClient(project_id=project_id, secret_key=secret_key, url=url)
         self._session_deduplication_id = deduplication_id
+        self._session_id = None
+        self._max_duration = max_duration if max_duration else "12h"
+        self._max_idle_duration = max_idle_duration if max_idle_duration else "10m"
+        self._open = True if max_duration or max_idle_duration else False
 
     def submit(
         self,
@@ -80,6 +86,7 @@ class ScalewayProvider(RemoteConnection):
         backend_configuration: Optional[EmulationConfig] = None,
         **kwargs,
     ) -> RemoteResults:
+        open = open or self._open
         job_params = kwargs.get("job_params", [])
 
         if batch_id:
@@ -117,9 +124,9 @@ class ScalewayProvider(RemoteConnection):
             session = self._client.create_session(
                 platform_id=platforms[0].id,
                 name=f"qs-pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
-                model_id=model.id,
-                max_duration="12h",
-                max_idle_duration="10m",
+                model_id=model.id if platforms[0].type_ == "qpu" else None,
+                max_duration=self._max_duration,
+                max_idle_duration=self._max_idle_duration,
                 deduplication_id=self._session_deduplication_id,
                 parameters={
                     "backend_configuration": backend_configuration_str,
@@ -127,10 +134,12 @@ class ScalewayProvider(RemoteConnection):
             )
 
             batch_id = session.id
+            self._session_id = session.id
 
             job_ids = self._create_jobs(
                 session_id=batch_id,
                 job_params=job_params,
+                model_id=model.id if platforms[0].type_ == "simulator" else None,
             )
 
             if wait:
@@ -153,13 +162,18 @@ class ScalewayProvider(RemoteConnection):
 
         return RemoteResults(batch_id=batch_id, connection=self, job_ids=job_ids)
 
-    def _create_jobs(self, session_id: str, job_params: List[JobParams]) -> List[str]:
+    def _create_jobs(
+        self, session_id: str, job_params: List[JobParams], model_id: str
+    ) -> List[str]:
         job_params = make_json_compatible(job_params)
         job_ids = []
 
         for params in job_params:
             job = self._client.create_job(
-                session_id=session_id, parameters=params, payload=None
+                session_id=session_id,
+                parameters=params,
+                payload=None,
+                model_id=model_id,
             )
             job_ids.append(job.id)
 
@@ -181,7 +195,21 @@ class ScalewayProvider(RemoteConnection):
     @lru_cache
     def _get_batch_sequence(self, session_id: str) -> Sequence:
         session = self._client.get_session(session_id)
+        if not session.model_id:
+            return None
+
         model = self._client.get_model(session.model_id)
+        model_data = self._get_data(model.url)
+        sequence_str = json.loads(model_data).get("sequence")
+
+        sequence = Sequence.from_abstract_repr(sequence_str)
+
+        return sequence
+
+    @lru_cache
+    def _get_job_sequence(self, job_id: str) -> Sequence:
+        job = self._client.get_job(job_id)
+        model = self._client.get_model(job.model_id)
 
         model_data = self._get_data(model.url)
         sequence_str = json.loads(model_data).get("sequence")
@@ -209,7 +237,9 @@ class ScalewayProvider(RemoteConnection):
             return None
 
         job_params = self._get_job_params(job_id)
-        sequence = self._get_batch_sequence(session_id)
+        sequence = self._get_batch_sequence(session_id) or self._get_job_sequence(
+            job_id
+        )
         job_result_str: str = self._get_job_result_data(job_results[0])
         job_result: dict = json.loads(job_result_str)
 
@@ -352,3 +382,8 @@ class ScalewayProvider(RemoteConnection):
     def supports_open_batch(self) -> bool:
         """Flag to confirm this class can support creating an open batch."""
         return True
+
+    def close(self):
+        """Closes the running batch."""
+        self._close_batch(self._session_id)
+        self._session_id = None
