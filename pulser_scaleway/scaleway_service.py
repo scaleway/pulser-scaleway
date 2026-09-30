@@ -120,6 +120,7 @@ class ScalewayProvider(RemoteConnection):
                     "backend_configuration": backend_configuration_str,
                 }
             )
+
             session = self._client.create_session(
                 platform_id=platforms[0].id,
                 name=f"qs-pulser-{datetime.now():%Y-%m-%d-%H-%M-%S}",
@@ -155,7 +156,7 @@ class ScalewayProvider(RemoteConnection):
                     self._close_batch(batch_id)
                     while (
                         self._client.get_session(session_id=batch_id).terminated_at
-                        in (None, types.UNSET)
+                        == types.UNSET
                     ):
                         time.sleep(_DEFAULT_FETCH_INTERVAL)
 
@@ -313,25 +314,23 @@ class ScalewayProvider(RemoteConnection):
         """Gets the status of a batch from its ID."""
         jobs = self._client.list_jobs(session_id=batch_id)
 
-        if any(
+        error_in_jobs = any(
             job.status in ["cancelled", "cancelling", "error"] for job in jobs
-        ):
+        )
+
+        if error_in_jobs:
             return BatchStatus.ERROR
 
         session = self._client.get_session(session_id=batch_id)
 
-        if session.terminated_at not in (None, types.UNSET) or str(
-            session.status
-        ) in ["stopping", "stopped"]:
-            return BatchStatus.DONE
+        session_status_mapping = {
+            "starting": BatchStatus.PENDING,
+            "running": BatchStatus.RUNNING,
+            "stopping": BatchStatus.DONE,
+            "stopped": BatchStatus.DONE,
+        }
 
-        if jobs and all(job.status == "completed" for job in jobs):
-            return BatchStatus.DONE
-
-        if any(job.status in ["waiting", "running"] for job in jobs):
-            return BatchStatus.RUNNING
-
-        return BatchStatus.PENDING
+        return session_status_mapping.get(session.status, BatchStatus.ERROR)
 
     def _get_job_ids(self, batch_id: str) -> List[str]:
         """Gets all the job IDs within a batch."""
@@ -378,7 +377,6 @@ class ScalewayProvider(RemoteConnection):
 
     def _close_batch(self, batch_id: str) -> None:
         """Closes a batch using its ID."""
-        print("DEBUG === _close_batch()")
         self._client.terminate_session(session_id=batch_id)
 
     def supports_open_batch(self) -> bool:
@@ -387,6 +385,5 @@ class ScalewayProvider(RemoteConnection):
 
     def close(self):
         """Closes the running batch."""
-        print("DEBUG === close()")
         self._close_batch(self._session_id)
         self._session_id = None
