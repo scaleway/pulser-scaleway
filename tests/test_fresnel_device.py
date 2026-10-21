@@ -29,11 +29,11 @@ def test_simple():
         url=os.getenv("PULSER_SCALEWAY_API_URL"),
     )
 
-    platform = "EMU-FRESNEL-100PQ"
+    platform = "EMU-FRESNEL-50PQ-64C-512M"
 
     devices = qaas_connection.fetch_available_devices()
     fresnel_device = devices[platform]
-    register = Register.square(5, 5).with_automatic_layout(fresnel_device)
+    register = Register.square(2, spacing=6.0).with_automatic_layout(fresnel_device)
     seq = Sequence(register, fresnel_device)
 
     seq.declare_channel("rydberg_global", "rydberg_global")
@@ -47,7 +47,7 @@ def test_simple():
 
     results = backend.run(
         job_params=[
-            {"runs": 100, "variables": {"t": 1000}},
+            {"runs": 10, "variables": {"t": 1000}},
             {"runs": 20, "variables": {"t": 2000}},
         ],
         wait=True,
